@@ -112,8 +112,23 @@ class PlanTests(unittest.TestCase):
             with self.assertRaisesRegex(cli.ConfigError, "không thêm scheme"):
                 cli.create_plan(arguments(path))
 
+    def test_base_image_build_arg_cannot_override_pinned_version(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = self.write_config(
+                Path(temp),
+                {"images": {"icinga2": {"build_args": {"BASE_IMAGE": "icinga/icinga2:latest"}}}},
+            )
+            with self.assertRaisesRegex(cli.ConfigError, "versions.icinga2"):
+                cli.create_plan(arguments(path, images=["icinga2"]))
+
 
 class DockerTests(unittest.TestCase):
+    def test_builtin_dockerfiles_require_base_image_from_config(self):
+        for name in cli.IMAGE_ORDER:
+            dockerfile = cli.PACKAGE_ROOT / "dockerfiles" / name / "Dockerfile"
+            lines = dockerfile.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(lines[:2], ["ARG BASE_IMAGE=scratch", "FROM ${BASE_IMAGE}"], name)
+
     def test_build_passes_base_proxy_and_custom_args(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

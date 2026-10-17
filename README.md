@@ -131,12 +131,16 @@ Nếu không khai `dockerfile`, cả năm image giữ nguyên nội dung upstrea
 `versions`. Ví dụ `icinga2` được build/tag thành `icinga2:2.16.5`, không tự cài thêm package và
 không tự thêm suffix.
 
+`versions` trong `config.yml` là nguồn duy nhất của version base image. Dockerfile built-in không chứa
+version cố định; tool ghép `source_registry + source_repository + version` rồi bắt buộc truyền kết quả
+qua build argument `BASE_IMAGE`. Không được khai `BASE_IMAGE` trong `images.<name>.build_args`.
+
 Khi cần custom, tạo Dockerfile riêng. Tool luôn truyền `BASE_IMAGE` theo version đã chọn. Project có
 sẵn file mẫu `examples/icinga2-openstack/Dockerfile`; có thể copy rồi sửa, hoặc trỏ thẳng tới file
 đó. Nội dung mẫu cài Python và OpenStack SDK:
 
 ```dockerfile
-ARG BASE_IMAGE=icinga/icinga2:2.16.5
+ARG BASE_IMAGE=scratch
 FROM ${BASE_IMAGE}
 
 ARG OPENSTACKSDK_VERSION=4.21.0

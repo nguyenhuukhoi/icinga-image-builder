@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=icinga/icingadb:1.5.1
+ARG BASE_IMAGE=scratch
 FROM ${BASE_IMAGE}
 
 # Thêm RUN/COPY cần thiết cho image Icinga DB custom tại đây.

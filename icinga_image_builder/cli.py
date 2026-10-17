@@ -148,6 +148,11 @@ def create_plan(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, st
         build_args = image_config.get("build_args", {}) or {}
         if not isinstance(build_args, dict):
             raise ConfigError(f"images.{name}.build_args phải là YAML mapping.")
+        if "BASE_IMAGE" in build_args:
+            raise ConfigError(
+                f"images.{name}.build_args.BASE_IMAGE là giá trị dành riêng; "
+                f"hãy đặt version tại versions.{name}."
+            )
         source = f"{source_registry + '/' if source_registry else ''}{source_repo}:{version}"
         short_target = f"{target_name}:{version}{suffix}"
         result.append(
@@ -238,7 +243,7 @@ def build_images(plan: list[dict[str, Any]], args: argparse.Namespace) -> None:
         if item["network"]:
             command.extend(["--network", item["network"]])
         command.extend(["--file", str(item["dockerfile"]), "--tag", item["target"]])
-        all_build_args = {"BASE_IMAGE": item["source"], **proxy_args, **item["build_args"]}
+        all_build_args = {**proxy_args, **item["build_args"], "BASE_IMAGE": item["source"]}
         for key, value in all_build_args.items():
             command.extend(["--build-arg", f"{key}={value}"])
         command.extend(
