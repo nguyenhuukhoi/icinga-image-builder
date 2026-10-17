@@ -27,29 +27,36 @@ images:
     enabled: true
     source_repository: "icinga/icinga2"
     target_name: "icinga2"
-    # Không khai dockerfile = build image nguyên bản đúng version ở trên.
-    # Khai Dockerfile riêng khi cần cài Python/OpenStack SDK hoặc package khác.
-    # dockerfile: "/đường/dẫn/Dockerfile.icinga2"
-    # context: "/đường/dẫn/build-context"
+    dockerfile: "dockerfiles/icinga2/Dockerfile"
+    context: "dockerfiles/icinga2"
+    # Sửa trực tiếp Dockerfile trên rồi build lại; không cần cài lại tool.
     # tag_suffix: "-custom"
     build_args: {}
   icingadb:
     enabled: true
     source_repository: "icinga/icingadb"
     target_name: "icingadb"
+    dockerfile: "dockerfiles/icingadb/Dockerfile"
+    context: "dockerfiles/icingadb"
     build_args: {}
   icingadb_redis:
     enabled: true
     source_repository: "redis"
     target_name: "icingadb-redis"
+    dockerfile: "dockerfiles/icingadb_redis/Dockerfile"
+    context: "dockerfiles/icingadb_redis"
     build_args: {}
   icingaweb2:
     enabled: true
     source_repository: "icinga/icingaweb2"
     target_name: "icingaweb2"
+    dockerfile: "dockerfiles/icingaweb2/Dockerfile"
+    context: "dockerfiles/icingaweb2"
     build_args: {}
   mariadb:
     enabled: true
     source_repository: "mariadb"
     target_name: "mariadb"
+    dockerfile: "dockerfiles/mariadb/Dockerfile"
+    context: "dockerfiles/mariadb"
     build_args: {}

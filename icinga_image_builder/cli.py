@@ -16,7 +16,6 @@ import yaml
 
 IMAGE_ORDER = ("icinga2", "icingadb", "icingadb_redis", "icingaweb2", "mariadb")
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
-PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULTS = {
     "icinga2": ("icinga/icinga2", "icinga2"),
     "icingadb": ("icinga/icingadb", "icingadb"),
@@ -133,12 +132,10 @@ def create_plan(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, st
         target_name = str(image_config.get("target_name", default_target)).strip().strip("/")
         if not source_repo or not target_name or any(c.isspace() for c in source_repo + target_name):
             raise ConfigError(f"Repository/name của {name} không hợp lệ.")
-        custom_dockerfile = image_config.get("dockerfile")
-        dockerfile = (
-            resolve_custom_path(str(custom_dockerfile), config_path)
-            if custom_dockerfile
-            else PACKAGE_ROOT / "dockerfiles" / name / "Dockerfile"
+        configured_dockerfile = image_config.get(
+            "dockerfile", f"dockerfiles/{name}/Dockerfile"
         )
+        dockerfile = resolve_custom_path(str(configured_dockerfile), config_path)
         custom_context = image_config.get("context")
         context = (
             resolve_custom_path(str(custom_context), config_path)

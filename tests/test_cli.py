@@ -59,6 +59,14 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(target, "registry.example/icinga")
         self.assertEqual(deploy, target)
 
+    def test_default_dockerfiles_are_external_to_installed_package(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            path = self.write_config(root)
+            plan, _, _ = cli.create_plan(arguments(path))
+        self.assertEqual(plan[0]["dockerfile"], root / "dockerfiles" / "icinga2" / "Dockerfile")
+        self.assertEqual(plan[4]["context"], root / "dockerfiles" / "mariadb")
+
     def test_source_registry_and_selection(self):
         with tempfile.TemporaryDirectory() as temp:
             path = self.write_config(Path(temp), {"source_registry": "mirror.local/cache"})
@@ -123,9 +131,9 @@ class PlanTests(unittest.TestCase):
 
 
 class DockerTests(unittest.TestCase):
-    def test_builtin_dockerfiles_require_base_image_from_config(self):
+    def test_default_dockerfiles_require_base_image_from_config(self):
         for name in cli.IMAGE_ORDER:
-            dockerfile = cli.PACKAGE_ROOT / "dockerfiles" / name / "Dockerfile"
+            dockerfile = Path(__file__).resolve().parents[1] / "dockerfiles" / name / "Dockerfile"
             lines = dockerfile.read_text(encoding="utf-8").splitlines()
             self.assertEqual(
                 lines[:4],

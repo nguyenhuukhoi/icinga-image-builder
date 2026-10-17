@@ -6,7 +6,7 @@ Tool độc lập để build và push image cho Icinga, theo cách vận hành 
 - chọn build toàn bộ hoặc một/nhiều image theo cú pháp như `kolla-build`;
 - pull base image từ Docker Hub hoặc registry/mirror do người vận hành chỉ định;
 - tag local hoặc push lên Harbor/registry riêng;
-- mặc định giữ nguyên image theo version đã pin; chỉ custom khi khai Dockerfile riêng;
+- mặc định giữ nguyên image theo version đã pin; custom bằng cách sửa hoặc thay Dockerfile bên ngoài package;
 - tự chuyển proxy đang có trong environment của build node vào `docker build`;
 - xuất YAML `custom_image_registry` và `custom_image_overrides` để đưa vào `icinga-ansible`.
 
@@ -22,12 +22,14 @@ sudo apt install -y python3-venv
 python3 -m venv /path/to/venv
 source /path/to/venv/bin/activate
 python -m pip install -U pip
-python -m pip install -e /path/to/icinga-image-builder
+python -m pip install /path/to/icinga-image-builder
 icinga-image-build --help
 ```
 
-`pip install -e` phù hợp khi bạn muốn sửa Dockerfile trong source tree. Có thể dùng `pip install
-/path/to/icinga-image-builder` nếu chỉ dùng Dockerfile đóng gói sẵn.
+Dockerfile không được đóng gói vào virtualenv. Chúng nằm tại thư mục `dockerfiles/` cạnh `config.yml`,
+và mọi đường dẫn được tính từ thư mục chứa `config.yml`. Vì vậy có thể sửa Dockerfile rồi build lại ngay,
+không cần chạy lại `pip install` và không cần dùng `pip install -e`. Hãy giữ `config.yml` cùng thư mục
+`dockerfiles/` trên build node.
 
 Docker chạy bằng user hiện tại. Nếu Docker socket chỉ cho root, thêm user build vào group `docker`,
 đăng nhập lại và kiểm tra `docker info`. Không chạy cả virtual environment bằng `sudo`.
@@ -125,19 +127,30 @@ Push các image đã build từ trước:
 icinga-image-build push --config ./config.yml
 ```
 
-## 4. Image mặc định và custom image
+## 4. Dockerfile bên ngoài package và custom image
 
-Nếu không khai `dockerfile`, cả năm image giữ nguyên nội dung upstream và dùng đúng version trong
-`versions`. Ví dụ `icinga2` được build/tag thành `icinga2:2.16.5`, không tự cài thêm package và
-không tự thêm suffix.
+Mặc định, `config.yml` trỏ cả năm image tới các Dockerfile bên ngoài Python package:
 
-`versions` trong `config.yml` là nguồn duy nhất của version base image. Dockerfile built-in không chứa
+```text
+dockerfiles/
+├── icinga2/Dockerfile
+├── icingadb/Dockerfile
+├── icingadb_redis/Dockerfile
+├── icingaweb2/Dockerfile
+└── mariadb/Dockerfile
+```
+
+Các Dockerfile mặc định chỉ kế thừa image upstream theo version trong `versions`, nên không thay đổi
+nội dung image. Sau khi sửa bất kỳ Dockerfile nào trong thư mục này, chạy lại lệnh `build`; tool sẽ dùng
+ngay nội dung mới mà không cần cài lại.
+
+`versions` trong `config.yml` là nguồn duy nhất của version base image. Dockerfile mặc định không chứa
 version cố định; tool ghép `source_registry + source_repository + version` rồi bắt buộc truyền kết quả
 qua build argument `BASE_IMAGE`. Không được khai `BASE_IMAGE` trong `images.<name>.build_args`.
 
-Khi cần custom, tạo Dockerfile riêng. Tool luôn truyền `BASE_IMAGE` theo version đã chọn. Project có
-sẵn file mẫu `examples/icinga2-openstack/Dockerfile`; có thể copy rồi sửa, hoặc trỏ thẳng tới file
-đó. Nội dung mẫu cài Python và OpenStack SDK:
+Khi cần custom Icinga 2, có thể sửa trực tiếp `dockerfiles/icinga2/Dockerfile`, hoặc tạo Dockerfile riêng
+rồi đổi đường dẫn trong `config.yml`. Tool luôn truyền `BASE_IMAGE` theo version đã chọn. Project cũng có
+file mẫu `examples/icinga2-openstack/Dockerfile` cài Python và OpenStack SDK:
 
 ```dockerfile
 # check=skip=InvalidDefaultArgInFrom
