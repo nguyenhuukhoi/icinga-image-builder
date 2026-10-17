@@ -251,14 +251,16 @@ images:
   icinga2:
     dockerfile: "examples/icinga2-openstack/Dockerfile"
     context: "examples/icinga2-openstack"
-    tag_suffix: "-custom"
     build_args:
       OPENSTACKSDK_VERSION: "4.21.0"
       PYYAML_VERSION: "6.0.3"
 ```
 
-Nếu muốn image custom thay thế trực tiếp tag đã pin trong registry riêng, bỏ `tag_suffix`. Nếu muốn
-giữ đồng thời bản nguyên gốc và bản custom, dùng `tag_suffix: "-custom"` như ví dụ trên.
+Theo cách dùng mặc định của Kolla, image custom giữ nguyên tag version đã pin. Ví dụ trên vì vậy tạo
+`icinga2:2.16.5`; `icinga-ansible` không cần đổi `custom_image_overrides` chỉ vì image có thêm Python hoặc
+OpenStack SDK. Kolla cũng có `openstack_tag_suffix`, nhưng mặc định để rỗng và tài liệu dùng suffix cho biến
+thể cần tồn tại song song, chẳng hạn image `-aarch64`. Tool vẫn hỗ trợ `tag_suffix` cho đúng trường hợp đó,
+nhưng không đặt suffix cho image custom thông thường.
 
 Có thể chạy ngay ví dụ đi kèm:
 
@@ -363,11 +365,11 @@ docker image inspect 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5 \
   --format '{{ index .Config.Labels "org.opencontainers.image.base.name" }}'
 ```
 
-Với image Icinga 2 custom có suffix, kiểm tra package:
+Với image Icinga 2 custom dùng tag version đã pin, kiểm tra package:
 
 ```bash
 docker run --rm --entrypoint /opt/icinga-venv/bin/python \
-  172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5-custom \
+  172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5 \
   -c 'import openstack, yaml; print(openstack.__version__)'
 ```
 

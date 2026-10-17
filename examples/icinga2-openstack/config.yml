@@ -19,7 +19,6 @@ images:
     target_name: "icinga2"
     dockerfile: "Dockerfile"
     context: "."
-    tag_suffix: "-custom"
     build_args:
       OPENSTACKSDK_VERSION: "4.21.0"
       PYYAML_VERSION: "6.0.3"
