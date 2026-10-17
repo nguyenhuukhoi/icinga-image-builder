@@ -1,0 +1,33 @@
+versions:
+  icinga2: "2.16.5"
+  icingadb: "1.5.1"
+  icingadb_redis: "7.4.11"
+  icingaweb2: "2.14.0"
+  mariadb: "12.3.3"
+
+source_registry: ""
+target_registry: ""
+local_namespace: "icinga-local"
+tag_suffix: ""
+build_network: "host"
+retries: 1
+
+images:
+  icinga2:
+    enabled: true
+    source_repository: "icinga/icinga2"
+    target_name: "icinga2"
+    dockerfile: "Dockerfile"
+    context: "."
+    tag_suffix: "-custom"
+    build_args:
+      OPENSTACKSDK_VERSION: "4.21.0"
+      PYYAML_VERSION: "6.0.3"
+  icingadb:
+    enabled: false
+  icingadb_redis:
+    enabled: false
+  icingaweb2:
+    enabled: false
+  mariadb:
+    enabled: false

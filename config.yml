@@ -16,7 +16,8 @@ target_registry: ""
 
 # Chỉ dùng để tag local khi target_registry để trống. Push bắt buộc có target_registry.
 local_namespace: "icinga-local"
-tag_suffix: "-custom"
+# Mặc định giữ nguyên tag version đã pin. Có thể đặt "-custom" toàn cục hoặc riêng từng image.
+tag_suffix: ""
 platform: ""                       # ví dụ "linux/amd64"
 build_network: ""                  # ví dụ "host" nếu Docker daemon không có bridge
 retries: 1                          # retry thêm 1 lần khi docker build/push lỗi mạng
@@ -26,11 +27,12 @@ images:
     enabled: true
     source_repository: "icinga/icinga2"
     target_name: "icinga2"
-    # Dockerfile mặc định đã cài python3, venv, openstacksdk và PyYAML.
+    # Không khai dockerfile = build image nguyên bản đúng version ở trên.
+    # Khai Dockerfile riêng khi cần cài Python/OpenStack SDK hoặc package khác.
     # dockerfile: "/đường/dẫn/Dockerfile.icinga2"
-    build_args:
-      OPENSTACKSDK_VERSION: "4.21.0"
-      PYYAML_VERSION: "6.0.3"
+    # context: "/đường/dẫn/build-context"
+    # tag_suffix: "-custom"
+    build_args: {}
   icingadb:
     enabled: true
     source_repository: "icinga/icingadb"

@@ -31,6 +31,7 @@ def arguments(config: Path, **overrides):
         "network": None,
         "retries": None,
         "image": None,
+        "images": [],
         "pull": False,
         "no_cache": False,
     }
@@ -54,7 +55,7 @@ class PlanTests(unittest.TestCase):
         self.assertEqual([item["name"] for item in plan], list(cli.IMAGE_ORDER))
         self.assertEqual(plan[0]["source"], "icinga/icinga2:2.16.5")
         self.assertEqual(plan[2]["source"], "redis:7.4.11")
-        self.assertEqual(plan[4]["target"], "registry.example/icinga/mariadb:12.3.3-custom")
+        self.assertEqual(plan[4]["target"], "registry.example/icinga/mariadb:12.3.3")
         self.assertEqual(target, "registry.example/icinga")
         self.assertEqual(deploy, target)
 
@@ -73,7 +74,28 @@ class PlanTests(unittest.TestCase):
             plan, target, deploy = cli.create_plan(arguments(path, image=["icinga2"]))
         self.assertEqual(target, "")
         self.assertEqual(deploy, "my-local")
-        self.assertEqual(plan[0]["target"], "my-local/icinga2:2.16.5-custom")
+        self.assertEqual(plan[0]["target"], "my-local/icinga2:2.16.5")
+
+    def test_positional_image_selection_like_kolla_build(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = self.write_config(Path(temp))
+            plan, _, _ = cli.create_plan(arguments(path, images=["icinga2", "icingadb"]))
+        self.assertEqual([item["name"] for item in plan], ["icinga2", "icingadb"])
+
+    def test_per_image_custom_suffix(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = self.write_config(
+                Path(temp), {"images": {"icinga2": {"tag_suffix": "-custom"}}}
+            )
+            plan, _, _ = cli.create_plan(arguments(path, images=["icinga2"]))
+        self.assertEqual(plan[0]["target"], "registry.example/icinga/icinga2:2.16.5-custom")
+
+    def test_parser_accepts_multiple_positional_images(self):
+        parsed = cli.make_parser().parse_args(
+            ["build", "icinga2", "icingadb", "--config", "config.yml"]
+        )
+        self.assertEqual(parsed.command, "build")
+        self.assertEqual(parsed.images, ["icinga2", "icingadb"])
 
     def test_missing_version_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -101,7 +123,7 @@ class DockerTests(unittest.TestCase):
                 "name": "icinga2",
                 "version": "2.16.5",
                 "source": "icinga/icinga2:2.16.5",
-                "target": "registry.example/icinga/icinga2:2.16.5-custom",
+                "target": "registry.example/icinga/icinga2:2.16.5",
                 "dockerfile": dockerfile,
                 "context": root,
                 "platform": "linux/amd64",

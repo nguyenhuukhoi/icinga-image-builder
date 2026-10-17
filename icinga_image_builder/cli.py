@@ -98,7 +98,7 @@ def create_plan(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, st
     target_prefix = target_registry or local_namespace
     if not target_prefix:
         raise ConfigError("Cần target_registry hoặc local_namespace.")
-    suffix = args.tag_suffix if args.tag_suffix is not None else str(config.get("tag_suffix", "-custom"))
+    default_suffix = args.tag_suffix if args.tag_suffix is not None else str(config.get("tag_suffix", ""))
     platform = args.platform if args.platform is not None else str(config.get("platform", "")).strip()
     build_network = (
         args.network if args.network is not None else str(config.get("build_network", "")).strip()
@@ -113,7 +113,8 @@ def create_plan(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, st
     args.effective_retries = retries
 
     result: list[dict[str, Any]] = []
-    for name in select_images(args.image):
+    requested_images = list(args.images or []) + list(args.image or [])
+    for name in select_images(requested_images):
         version = str(versions.get(name, "")).strip()
         if not VERSION_RE.fullmatch(version):
             raise ConfigError(f"versions.{name}='{version}' không hợp lệ; cần version dạng x.y.z.")
@@ -122,6 +123,11 @@ def create_plan(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, st
             raise ConfigError(f"images.{name} phải là YAML mapping.")
         if image_config.get("enabled", True) is False:
             continue
+        suffix = (
+            default_suffix
+            if args.tag_suffix is not None
+            else str(image_config.get("tag_suffix", default_suffix))
+        )
         default_source, default_target = DEFAULTS[name]
         source_repo = str(image_config.get("source_repository", default_source)).strip().strip("/")
         target_name = str(image_config.get("target_name", default_target)).strip().strip("/")
@@ -258,10 +264,11 @@ def make_parser() -> argparse.ArgumentParser:
         description="Tool độc lập build/push image Icinga theo version chỉ định.",
     )
     parser.add_argument("command", choices=("plan", "build", "push"))
+    parser.add_argument("images", nargs="*", metavar="IMAGE", help="image cần xử lý, ví dụ icinga2 icingadb")
     parser.add_argument("--config", default="config.yml", help="file cấu hình (mặc định ./config.yml)")
     parser.add_argument("--source-registry", help="ghi đè registry nguồn để pull base image")
     parser.add_argument("--registry", help="ghi đè registry/project đích")
-    parser.add_argument("--image", action="append", help="lọc image; lặp lại hoặc ngăn bằng dấu phẩy")
+    parser.add_argument("--image", action="append", help="lọc image; tương thích cú pháp cũ, có thể lặp/ngăn bằng dấu phẩy")
     parser.add_argument("--tag-suffix", help="ghi đè suffix tag custom")
     parser.add_argument("--platform", help="ghi đè platform, ví dụ linux/amd64")
     parser.add_argument("--network", help="network dùng cho RUN khi build, ví dụ host")

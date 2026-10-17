@@ -3,10 +3,10 @@
 Tool độc lập để build và push image cho Icinga, theo cách vận hành gần với `kolla-build`:
 
 - version của từng thành phần nằm trong một file YAML;
-- chọn build toàn bộ hoặc từng image;
+- chọn build toàn bộ hoặc một/nhiều image theo cú pháp như `kolla-build`;
 - pull base image từ Docker Hub hoặc registry/mirror do người vận hành chỉ định;
 - tag local hoặc push lên Harbor/registry riêng;
-- dùng Dockerfile riêng và build argument riêng cho từng image;
+- mặc định giữ nguyên image theo version đã pin; chỉ custom khi khai Dockerfile riêng;
 - tự chuyển proxy đang có trong environment của build node vào `docker build`;
 - xuất YAML `custom_image_registry` và `custom_image_overrides` để đưa vào `icinga-ansible`.
 
@@ -47,7 +47,7 @@ versions:
 source_registry: ""
 target_registry: "172.28.81.109/openstack.kolla/icinga"
 local_namespace: "icinga-local"
-tag_suffix: "-custom"
+tag_suffix: ""                    # mặc định tag đúng version đã pin
 platform: "linux/amd64"
 build_network: ""                  # đặt "host" nếu build node không có Docker bridge
 retries: 1                         # retry thêm một lần khi Docker/registry lỗi tạm thời
@@ -79,29 +79,34 @@ icinga-image-build plan --config ./config.yml \
 
 ## 3. Build
 
-Build đủ năm image:
+Build đủ năm image đúng version đã pin:
 
 ```bash
 icinga-image-build build --config ./config.yml --pull
 ```
 
-Chỉ build Icinga 2:
+Chỉ build Icinga 2, theo cú pháp positional giống Kolla build:
 
 ```bash
-icinga-image-build build --config ./config.yml --image icinga2 --pull
+icinga-image-build build icinga2 --config ./config.yml --pull
 ```
 
 Nếu Docker báo `network bridge not found`, dùng network host của build node:
 
 ```bash
-icinga-image-build build --config ./config.yml --image icinga2 --pull --network host
+icinga-image-build build icinga2 --config ./config.yml --pull --network host
 ```
 
-Chọn nhiều image bằng cách lặp option hoặc phân cách bằng dấu phẩy:
+Chọn nhiều image bằng cách ghi tên liên tiếp:
 
 ```bash
-icinga-image-build build --config ./config.yml \
-  --image icinga2,icingadb --image icingaweb2
+icinga-image-build build icinga2 icingadb icingaweb2 --config ./config.yml
+```
+
+Option cũ vẫn được hỗ trợ để tương thích:
+
+```bash
+icinga-image-build build --config ./config.yml --image icinga2,icingadb
 ```
 
 Build không cache và push ngay:
@@ -120,28 +125,32 @@ Push các image đã build từ trước:
 icinga-image-build push --config ./config.yml
 ```
 
-## 4. Custom image
+## 4. Image mặc định và custom image
 
-Dockerfile mặc định của `icinga2` cài sẵn:
+Nếu không khai `dockerfile`, cả năm image giữ nguyên nội dung upstream và dùng đúng version trong
+`versions`. Ví dụ `icinga2` được build/tag thành `icinga2:2.16.5`, không tự cài thêm package và
+không tự thêm suffix.
 
-- `python3` và `python3-venv`;
-- virtual environment `/opt/icinga-venv`;
-- `openstacksdk` và `PyYAML`.
-
-Hai package Python được pin theo `build_args` trong `config.yml`. Hãy đổi version ở đó khi muốn
-nâng package; cách này giúp cùng một config tạo lại cùng dependency thay vì âm thầm lấy bản mới.
-
-Các Dockerfile còn lại giữ nguyên base image và là điểm bắt đầu để thêm package. Tool luôn truyền
-`BASE_IMAGE` theo version đã chọn. Dockerfile custom phải bắt đầu như sau:
+Khi cần custom, tạo Dockerfile riêng. Tool luôn truyền `BASE_IMAGE` theo version đã chọn. Project có
+sẵn file mẫu `examples/icinga2-openstack/Dockerfile`; có thể copy rồi sửa, hoặc trỏ thẳng tới file
+đó. Nội dung mẫu cài Python và OpenStack SDK:
 
 ```dockerfile
-ARG BASE_IMAGE
+ARG BASE_IMAGE=icinga/icinga2:2.16.5
 FROM ${BASE_IMAGE}
+
+ARG OPENSTACKSDK_VERSION=4.21.0
+ARG PYYAML_VERSION=6.0.3
 
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends python3 python3-venv \
+    && python3 -m venv /opt/icinga-venv \
+    && /opt/icinga-venv/bin/pip install --no-cache-dir \
+       "openstacksdk==${OPENSTACKSDK_VERSION}" "PyYAML==${PYYAML_VERSION}" \
     && rm -rf /var/lib/apt/lists/*
+
+USER icinga
 ```
 
 Trỏ tới Dockerfile và context riêng, đường dẫn tương đối được tính từ thư mục chứa `config.yml`:
@@ -149,10 +158,22 @@ Trỏ tới Dockerfile và context riêng, đường dẫn tương đối đư�
 ```yaml
 images:
   icinga2:
-    dockerfile: "custom/icinga2/Dockerfile"
-    context: "custom/icinga2"
+    dockerfile: "examples/icinga2-openstack/Dockerfile"
+    context: "examples/icinga2-openstack"
+    tag_suffix: "-custom"
     build_args:
-      OPENSTACKSDK_VERSION: "4.7.1"
+      OPENSTACKSDK_VERSION: "4.21.0"
+      PYYAML_VERSION: "6.0.3"
+```
+
+Nếu muốn image custom thay thế trực tiếp tag đã pin trong registry riêng, bỏ `tag_suffix`. Nếu muốn
+giữ đồng thời bản nguyên gốc và bản custom, dùng `tag_suffix: "-custom"` như ví dụ trên.
+
+Có thể chạy ngay ví dụ đi kèm:
+
+```bash
+icinga-image-build build icinga2 \
+  --config ./examples/icinga2-openstack/config.yml
 ```
 
 Tool truyền `http_proxy`, `https_proxy`, `no_proxy` cùng các biến viết hoa từ environment hiện tại.
@@ -172,11 +193,11 @@ Nội dung sinh ra có dạng:
 ```yaml
 custom_image_registry: 172.28.81.109/openstack.kolla/icinga
 custom_image_overrides:
-  icinga2: icinga2:2.16.5-custom
-  icingadb: icingadb:1.5.1-custom
-  icingadb_redis: icingadb-redis:7.4.11-custom
-  icingaweb2: icingaweb2:2.14.0-custom
-  mariadb: mariadb:12.3.3-custom
+  icinga2: icinga2:2.16.5
+  icingadb: icingadb:1.5.1
+  icingadb_redis: icingadb-redis:7.4.11
+  icingaweb2: icingaweb2:2.14.0
+  mariadb: mariadb:12.3.3
 ```
 
 Merge hai key này vào `/etc/icinga-ansible/globals.yml`, sau đó chạy `icinga-ansible pull`,
@@ -185,13 +206,13 @@ Merge hai key này vào `/etc/icinga-ansible/globals.yml`, sau đó chạy `icin
 ## 6. Kiểm tra image đã push
 
 ```bash
-docker manifest inspect 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5-custom >/dev/null
-docker pull 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5-custom
-docker image inspect 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5-custom \
+docker manifest inspect 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5 >/dev/null
+docker pull 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5
+docker image inspect 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5 \
   --format '{{ index .Config.Labels "org.opencontainers.image.base.name" }}'
 ```
 
-Với image Icinga 2 mẫu, kiểm tra package custom:
+Với image Icinga 2 custom có suffix, kiểm tra package:
 
 ```bash
 docker run --rm --entrypoint /opt/icinga-venv/bin/python \
@@ -206,4 +227,4 @@ docker run --rm --entrypoint /opt/icinga-venv/bin/python \
 - `build` không tự push nếu thiếu `--push`.
 - `push` bị chặn khi chưa có target registry.
 - Build lỗi ở image nào thì dừng ngay ở image đó.
-- Chỉ các image được chọn bằng `--image` mới xuất hiện trong file override.
+- Chỉ các image được chọn theo positional hoặc `--image` mới xuất hiện trong file override.
