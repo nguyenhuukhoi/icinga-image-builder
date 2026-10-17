@@ -68,6 +68,56 @@ docker_dirs:                       # optional; thư mục override ngoài virtua
 - Nếu để trống `target_registry`, build vẫn chạy và tag dưới `local_namespace`; command `push` sẽ
   từ chối để tránh đẩy nhầm nơi.
 
+### `local_namespace` dùng khi nào?
+
+`local_namespace` là tiền tố đặt tên image chỉ trên Docker daemon của build node khi
+`target_registry` để trống. Nó không phải registry, Harbor project, Docker network hay một tài nguyên
+cần tạo trước. Docker chỉ lưu toàn bộ chuỗi này như tên repository của image local.
+
+Ví dụ:
+
+```yaml
+target_registry: ""
+local_namespace: "icinga-local"
+```
+
+Với version `icinga2: 2.16.5`, target được tạo là:
+
+```text
+icinga-local/icinga2:2.16.5
+```
+
+Nếu có `tag_suffix: "-custom"`, target trở thành:
+
+```text
+icinga-local/icinga2:2.16.5-custom
+```
+
+Khi đã khai registry đích, tool ưu tiên hoàn toàn `target_registry`:
+
+```yaml
+target_registry: "172.28.81.109/openstack.kolla/icinga"
+local_namespace: "icinga-local"
+```
+
+Target khi đó là:
+
+```text
+172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5
+```
+
+`local_namespace` không xuất hiện trong tên trên và không ảnh hưởng tới image production. Giá trị này
+được giữ để build/test local có namespace riêng, tránh tạo tag ngắn như `icinga2:2.16.5` dễ nhầm với
+image upstream. Lệnh `push` vẫn yêu cầu `target_registry`; tool không suy đoán một registry từ
+`local_namespace`.
+
+Quy tắc chọn target:
+
+```text
+target_registry có giá trị  -> target_registry/image:version[-suffix]
+target_registry để trống    -> local_namespace/image:version[-suffix]
+```
+
 Kiểm tra trước mọi thay đổi:
 
 ```bash

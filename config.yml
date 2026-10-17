@@ -14,7 +14,9 @@ source_registry: ""
 # Harbor hiện tại: "172.28.81.109/openstack.kolla/icinga"
 target_registry: ""
 
-# Chỉ dùng để tag local khi target_registry để trống. Push bắt buộc có target_registry.
+# Namespace chỉ dùng để đặt tên image trên Docker daemon của build node khi target_registry để trống.
+# Đây không phải registry/Harbor project và không cần tạo trước. Khi target_registry có giá trị, option
+# này bị bỏ qua hoàn toàn. Push luôn bắt buộc có target_registry để tránh đẩy nhầm image local.
 local_namespace: "icinga-local"
 # Mặc định giữ nguyên tag version đã pin. Có thể đặt "-custom" toàn cục hoặc riêng từng image.
 tag_suffix: ""
