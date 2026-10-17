@@ -11,3 +11,6 @@ dependencies = ["PyYAML>=6.0"]
 
 [project.scripts]
 icinga-image-build = "icinga_image_builder.cli:main"
+
+[tool.setuptools.package-data]
+icinga_image_builder = ["dockerfiles/*/Dockerfile"]

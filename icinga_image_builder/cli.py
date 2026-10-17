@@ -16,6 +16,7 @@ import yaml
 
 IMAGE_ORDER = ("icinga2", "icingadb", "icingadb_redis", "icingaweb2", "mariadb")
 VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
+PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULTS = {
     "icinga2": ("icinga/icinga2", "icinga2"),
     "icingadb": ("icinga/icingadb", "icingadb"),
@@ -111,6 +112,16 @@ def create_plan(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, st
         raise ConfigError("retries phải là số nguyên từ 0 đến 10.")
     args.effective_retries = retries
 
+    configured_docker_dirs = config.get("docker_dirs", []) or []
+    if not isinstance(configured_docker_dirs, list):
+        raise ConfigError("docker_dirs phải là YAML list.")
+    docker_dirs: list[Path] = []
+    for value in [*configured_docker_dirs, *(args.docker_dir or [])]:
+        docker_dir = resolve_custom_path(str(value), config_path).resolve()
+        if not docker_dir.is_dir():
+            raise ConfigError(f"Không tìm thấy docker_dir: {docker_dir}")
+        docker_dirs.append(docker_dir)
+
     result: list[dict[str, Any]] = []
     requested_images = list(args.images or []) + list(args.image or [])
     for name in select_images(requested_images):
@@ -132,10 +143,15 @@ def create_plan(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str, st
         target_name = str(image_config.get("target_name", default_target)).strip().strip("/")
         if not source_repo or not target_name or any(c.isspace() for c in source_repo + target_name):
             raise ConfigError(f"Repository/name của {name} không hợp lệ.")
-        configured_dockerfile = image_config.get(
-            "dockerfile", f"dockerfiles/{name}/Dockerfile"
-        )
-        dockerfile = resolve_custom_path(str(configured_dockerfile), config_path)
+        configured_dockerfile = image_config.get("dockerfile")
+        if configured_dockerfile:
+            dockerfile = resolve_custom_path(str(configured_dockerfile), config_path)
+        else:
+            dockerfile = PACKAGE_ROOT / "dockerfiles" / name / "Dockerfile"
+            for docker_dir in docker_dirs:
+                candidate = docker_dir / name / "Dockerfile"
+                if candidate.is_file():
+                    dockerfile = candidate
         custom_context = image_config.get("context")
         context = (
             resolve_custom_path(str(custom_context), config_path)
@@ -274,6 +290,11 @@ def make_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tag-suffix", help="ghi đè suffix tag custom")
     parser.add_argument("--platform", help="ghi đè platform, ví dụ linux/amd64")
     parser.add_argument("--network", help="network dùng cho RUN khi build, ví dụ host")
+    parser.add_argument(
+        "--docker-dir",
+        action="append",
+        help="thư mục Dockerfile override bên ngoài package; có thể khai nhiều lần",
+    )
     parser.add_argument("--retries", type=int, help="số lần retry thêm khi Docker lỗi (0-10)")
     parser.add_argument("--pull", action="store_true", help="pull lại base image khi build")
     parser.add_argument("--no-cache", action="store_true", help="build không dùng cache")

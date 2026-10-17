@@ -29,6 +29,7 @@ def arguments(config: Path, **overrides):
         "tag_suffix": None,
         "platform": None,
         "network": None,
+        "docker_dir": None,
         "retries": None,
         "image": None,
         "images": [],
@@ -59,13 +60,31 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(target, "registry.example/icinga")
         self.assertEqual(deploy, target)
 
-    def test_default_dockerfiles_are_external_to_installed_package(self):
+    def test_default_dockerfiles_are_loaded_from_installed_package(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = self.write_config(Path(temp))
+            plan, _, _ = cli.create_plan(arguments(path))
+        self.assertEqual(
+            plan[0]["dockerfile"], cli.PACKAGE_ROOT / "dockerfiles" / "icinga2" / "Dockerfile"
+        )
+
+    def test_external_docker_dirs_override_defaults_and_last_one_wins(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            path = self.write_config(root)
-            plan, _, _ = cli.create_plan(arguments(path))
-        self.assertEqual(plan[0]["dockerfile"], root / "dockerfiles" / "icinga2" / "Dockerfile")
-        self.assertEqual(plan[4]["context"], root / "dockerfiles" / "mariadb")
+            first = root / "first"
+            second = root / "second"
+            (first / "icinga2").mkdir(parents=True)
+            (second / "icinga2").mkdir(parents=True)
+            (first / "icinga2" / "Dockerfile").write_text("FROM first\n", encoding="utf-8")
+            selected = second / "icinga2" / "Dockerfile"
+            selected.write_text("FROM second\n", encoding="utf-8")
+            path = self.write_config(root, {"docker_dirs": ["first", "second"]})
+            plan, _, _ = cli.create_plan(arguments(path, images=["icinga2", "mariadb"]))
+        self.assertEqual(plan[0]["dockerfile"], selected)
+        self.assertEqual(plan[0]["context"], selected.parent)
+        self.assertEqual(
+            plan[1]["dockerfile"], cli.PACKAGE_ROOT / "dockerfiles" / "mariadb" / "Dockerfile"
+        )
 
     def test_source_registry_and_selection(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -105,6 +124,12 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(parsed.command, "build")
         self.assertEqual(parsed.images, ["icinga2", "icingadb"])
 
+    def test_parser_accepts_multiple_external_docker_dirs(self):
+        parsed = cli.make_parser().parse_args(
+            ["build", "icinga2", "--docker-dir", "first", "--docker-dir", "second"]
+        )
+        self.assertEqual(parsed.docker_dir, ["first", "second"])
+
     def test_missing_version_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             bad_versions = dict(VERSIONS)
@@ -133,7 +158,7 @@ class PlanTests(unittest.TestCase):
 class DockerTests(unittest.TestCase):
     def test_default_dockerfiles_require_base_image_from_config(self):
         for name in cli.IMAGE_ORDER:
-            dockerfile = Path(__file__).resolve().parents[1] / "dockerfiles" / name / "Dockerfile"
+            dockerfile = cli.PACKAGE_ROOT / "dockerfiles" / name / "Dockerfile"
             lines = dockerfile.read_text(encoding="utf-8").splitlines()
             self.assertEqual(
                 lines[:4],

@@ -6,7 +6,7 @@ Tool độc lập để build và push image cho Icinga, theo cách vận hành 
 - chọn build toàn bộ hoặc một/nhiều image theo cú pháp như `kolla-build`;
 - pull base image từ Docker Hub hoặc registry/mirror do người vận hành chỉ định;
 - tag local hoặc push lên Harbor/registry riêng;
-- mặc định giữ nguyên image theo version đã pin; custom bằng cách sửa hoặc thay Dockerfile bên ngoài package;
+- Dockerfile mặc định được đóng gói cùng tool; custom bằng Dockerfile override bên ngoài virtualenv như Kolla;
 - tự chuyển proxy đang có trong environment của build node vào `docker build`;
 - xuất YAML `custom_image_registry` và `custom_image_overrides` để đưa vào `icinga-ansible`.
 
@@ -26,10 +26,10 @@ python -m pip install /path/to/icinga-image-builder
 icinga-image-build --help
 ```
 
-Dockerfile không được đóng gói vào virtualenv. Chúng nằm tại thư mục `dockerfiles/` cạnh `config.yml`,
-và mọi đường dẫn được tính từ thư mục chứa `config.yml`. Vì vậy có thể sửa Dockerfile rồi build lại ngay,
-không cần chạy lại `pip install` và không cần dùng `pip install -e`. Hãy giữ `config.yml` cùng thư mục
-`dockerfiles/` trên build node.
+Dockerfile mặc định được đóng gói vào virtualenv, tương tự Kolla cài template mặc định vào
+`$VIRTUAL_ENV/share/kolla/docker`. Không sửa bản mặc định trong source tree sau khi cài. Khi cần custom,
+đặt Dockerfile override bên ngoài virtualenv và khai bằng `docker_dirs` hoặc `--docker-dir`. Sửa file
+override rồi build lại sẽ có hiệu lực ngay; không cần cài lại tool và không cần `pip install -e`.
 
 Docker chạy bằng user hiện tại. Nếu Docker socket chỉ cho root, thêm user build vào group `docker`,
 đăng nhập lại và kiểm tra `docker info`. Không chạy cả virtual environment bằng `sudo`.
@@ -53,6 +53,9 @@ tag_suffix: ""                    # mặc định tag đúng version đã pin
 platform: "linux/amd64"
 build_network: ""                  # đặt "host" nếu build node không có Docker bridge
 retries: 1                         # retry thêm một lần khi Docker/registry lỗi tạm thời
+
+docker_dirs:                       # optional; thư mục override ngoài virtualenv
+  - "/etc/icinga-image-builder/dockerfiles"
 ```
 
 `source_registry` và `target_registry` chỉ chứa `host[:port][/project]`, không có `https://`.
@@ -127,30 +130,47 @@ Push các image đã build từ trước:
 icinga-image-build push --config ./config.yml
 ```
 
-## 4. Dockerfile bên ngoài package và custom image
+## 4. Dockerfile mặc định và custom theo cách Kolla
 
-Mặc định, `config.yml` trỏ cả năm image tới các Dockerfile bên ngoài Python package:
+Dockerfile mặc định của cả năm image được đóng gói cùng Python package. Nếu không khai `docker_dirs`
+và không khai `images.<name>.dockerfile`, tool dùng bản mặc định trong virtualenv. Các file này chỉ kế
+thừa image upstream theo version đã pin nên không tự cài thêm package.
+
+Custom image nên nằm ngoài virtualenv với cấu trúc giống `--docker-dir` của Kolla:
 
 ```text
-dockerfiles/
-├── icinga2/Dockerfile
-├── icingadb/Dockerfile
-├── icingadb_redis/Dockerfile
-├── icingaweb2/Dockerfile
-└── mariadb/Dockerfile
+/etc/icinga-image-builder/dockerfiles/
+├── icinga2/
+│   └── Dockerfile
+└── icingaweb2/
+    └── Dockerfile
 ```
 
-Các Dockerfile mặc định chỉ kế thừa image upstream theo version trong `versions`, nên không thay đổi
-nội dung image. Sau khi sửa bất kỳ Dockerfile nào trong thư mục này, chạy lại lệnh `build`; tool sẽ dùng
-ngay nội dung mới mà không cần cài lại.
+Chỉ cần tạo thư mục cho image muốn custom. Các image không xuất hiện trong thư mục override tiếp tục dùng
+Dockerfile mặc định. Khai trong `config.yml`:
+
+```yaml
+docker_dirs:
+  - "/etc/icinga-image-builder/dockerfiles"
+```
+
+Cũng có thể truyền từ command line, tương tự Kolla:
+
+```bash
+icinga-image-build build icinga2 --config ./config.yml \
+  --docker-dir /etc/icinga-image-builder/dockerfiles
+```
+
+Có thể khai `docker_dirs` hoặc `--docker-dir` nhiều lần. Tool duyệt theo thứ tự và Dockerfile trong thư
+mục sau sẽ ghi đè Dockerfile cùng image từ thư mục trước.
 
 `versions` trong `config.yml` là nguồn duy nhất của version base image. Dockerfile mặc định không chứa
 version cố định; tool ghép `source_registry + source_repository + version` rồi bắt buộc truyền kết quả
 qua build argument `BASE_IMAGE`. Không được khai `BASE_IMAGE` trong `images.<name>.build_args`.
 
-Khi cần custom Icinga 2, có thể sửa trực tiếp `dockerfiles/icinga2/Dockerfile`, hoặc tạo Dockerfile riêng
-rồi đổi đường dẫn trong `config.yml`. Tool luôn truyền `BASE_IMAGE` theo version đã chọn. Project cũng có
-file mẫu `examples/icinga2-openstack/Dockerfile` cài Python và OpenStack SDK:
+Khi cần custom Icinga 2, copy file mẫu thành
+`/etc/icinga-image-builder/dockerfiles/icinga2/Dockerfile`. Tool luôn truyền `BASE_IMAGE` theo version đã
+chọn. Project có file mẫu `examples/icinga2-openstack/Dockerfile` cài Python và OpenStack SDK:
 
 ```dockerfile
 # check=skip=InvalidDefaultArgInFrom
@@ -172,7 +192,9 @@ RUN apt-get update \
 USER icinga
 ```
 
-Trỏ tới Dockerfile và context riêng, đường dẫn tương đối được tính từ thư mục chứa `config.yml`:
+Nếu một image cần build context đặc biệt, vẫn có thể trỏ trực tiếp bằng `dockerfile` và `context`. Đường
+dẫn tương đối được tính từ thư mục chứa `config.yml`; cấu hình riêng theo image có ưu tiên cao hơn
+`docker_dirs`:
 
 ```yaml
 images:
