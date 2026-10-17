@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icinga-image-builder"
+version = "0.1.0"
+description = "Standalone build and push tool for Icinga container images"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6.0"]
+
+[project.scripts]
+icinga-image-build = "icinga_image_builder.cli:main"
+
+[tool.setuptools.package-data]
+icinga_image_builder = ["dockerfiles/*/Dockerfile"]

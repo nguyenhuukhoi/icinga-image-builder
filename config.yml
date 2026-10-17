@@ -1,0 +1,53 @@
+# Version là nguồn duy nhất để tạo tag base và tag custom.
+versions:
+  icinga2: "2.16.5"
+  icingadb: "1.5.1"
+  icingadb_redis: "7.4.11"
+  icingaweb2: "2.14.0"
+  mariadb: "12.3.3"
+
+# Prefix registry nguồn. Rỗng nghĩa là pull từ Docker Hub.
+# Ví dụ Harbor proxy cache: "harbor.example.com/dockerhub"
+source_registry: ""
+
+# Registry/project nhận image custom. Không thêm http:// hoặc https://.
+# Harbor hiện tại: "172.28.81.109/openstack.kolla/icinga"
+target_registry: ""
+
+# Chỉ dùng để tag local khi target_registry để trống. Push bắt buộc có target_registry.
+local_namespace: "icinga-local"
+tag_suffix: "-custom"
+platform: ""                       # ví dụ "linux/amd64"
+build_network: ""                  # ví dụ "host" nếu Docker daemon không có bridge
+retries: 1                          # retry thêm 1 lần khi docker build/push lỗi mạng
+
+images:
+  icinga2:
+    enabled: true
+    source_repository: "icinga/icinga2"
+    target_name: "icinga2"
+    # Dockerfile mặc định đã cài python3, venv, openstacksdk và PyYAML.
+    # dockerfile: "/đường/dẫn/Dockerfile.icinga2"
+    build_args:
+      OPENSTACKSDK_VERSION: "4.21.0"
+      PYYAML_VERSION: "6.0.3"
+  icingadb:
+    enabled: true
+    source_repository: "icinga/icingadb"
+    target_name: "icingadb"
+    build_args: {}
+  icingadb_redis:
+    enabled: true
+    source_repository: "redis"
+    target_name: "icingadb-redis"
+    build_args: {}
+  icingaweb2:
+    enabled: true
+    source_repository: "icinga/icingaweb2"
+    target_name: "icingaweb2"
+    build_args: {}
+  mariadb:
+    enabled: true
+    source_repository: "mariadb"
+    target_name: "mariadb"
+    build_args: {}
