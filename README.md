@@ -140,7 +140,9 @@ sẵn file mẫu `examples/icinga2-openstack/Dockerfile`; có thể copy rồi s
 đó. Nội dung mẫu cài Python và OpenStack SDK:
 
 ```dockerfile
-ARG BASE_IMAGE=scratch
+# check=skip=InvalidDefaultArgInFrom
+
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG OPENSTACKSDK_VERSION=4.21.0

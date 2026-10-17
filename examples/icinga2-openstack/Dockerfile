@@ -1,4 +1,6 @@
-ARG BASE_IMAGE=scratch
+# check=skip=InvalidDefaultArgInFrom
+
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 ARG OPENSTACKSDK_VERSION=4.21.0

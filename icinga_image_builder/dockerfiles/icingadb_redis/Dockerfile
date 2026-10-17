@@ -1,4 +1,6 @@
-ARG BASE_IMAGE=scratch
+# check=skip=InvalidDefaultArgInFrom
+
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 # Thêm RUN/COPY cần thiết cho image Redis custom tại đây.

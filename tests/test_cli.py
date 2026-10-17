@@ -127,7 +127,11 @@ class DockerTests(unittest.TestCase):
         for name in cli.IMAGE_ORDER:
             dockerfile = cli.PACKAGE_ROOT / "dockerfiles" / name / "Dockerfile"
             lines = dockerfile.read_text(encoding="utf-8").splitlines()
-            self.assertEqual(lines[:2], ["ARG BASE_IMAGE=scratch", "FROM ${BASE_IMAGE}"], name)
+            self.assertEqual(
+                lines[:4],
+                ["# check=skip=InvalidDefaultArgInFrom", "", "ARG BASE_IMAGE", "FROM ${BASE_IMAGE}"],
+                name,
+            )
 
     def test_build_passes_base_proxy_and_custom_args(self):
         with tempfile.TemporaryDirectory() as temp:
