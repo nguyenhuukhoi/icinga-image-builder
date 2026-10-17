@@ -220,6 +220,66 @@ icinga-image-build build icinga2 \
 Tool truyền `http_proxy`, `https_proxy`, `no_proxy` cùng các biến viết hoa từ environment hiện tại.
 Nếu build node dùng `/etc/environment`, đăng nhập lại hoặc nạp các biến đó vào shell trước khi build.
 
+### Xác minh thay đổi trong `docker_dirs` được dùng ngay
+
+Quy trình dưới đây đã được kiểm chứng bằng build thật trên Docker 29.8.1. Chạy trên build node có Docker;
+không cần chạy lại `pip install` giữa hai lần build.
+
+Đặt suffix riêng để image kiểm tra không ghi đè image đang sử dụng:
+
+```yaml
+tag_suffix: "-docker-dir-test"
+docker_dirs:
+  - "/etc/icinga-image-builder/dockerfiles"
+```
+
+Tạo `/etc/icinga-image-builder/dockerfiles/icinga2/Dockerfile`:
+
+```dockerfile
+# check=skip=InvalidDefaultArgInFrom
+
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+USER root
+RUN printf 'override-v1\n' > /docker-dir-test-version
+```
+
+Build và đọc file marker trong image:
+
+```bash
+icinga-image-build build icinga2 --config ./config.yml --no-cache
+
+docker run --rm --entrypoint cat \
+  icinga-local/icinga2:2.16.5-docker-dir-test \
+  /docker-dir-test-version
+```
+
+Ví dụ này giả sử `target_registry` để trống và `local_namespace: "icinga-local"`. Nếu build vào registry,
+dùng đúng tên target mà lệnh `icinga-image-build` in ra.
+
+Kết quả lần đầu phải là:
+
+```text
+override-v1
+```
+
+Chỉ sửa dòng `RUN` trong chính Dockerfile override:
+
+```dockerfile
+RUN printf 'override-v2\n' > /docker-dir-test-version
+```
+
+Chạy lại đúng hai lệnh `icinga-image-build build` và `docker run` ở trên, không cài lại tool. Kết quả
+phải đổi thành:
+
+```text
+override-v2
+```
+
+`--no-cache` được dùng trong bài kiểm tra để loại trừ Docker layer cache. Trong vận hành bình thường có
+thể bỏ option này; Docker vẫn phát hiện Dockerfile đã thay đổi và rebuild layer liên quan.
+
 ## 5. Dùng image với icinga-ansible
 
 Xuất file riêng khi lập kế hoạch hoặc build:
