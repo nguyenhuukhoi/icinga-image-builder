@@ -31,13 +31,24 @@ docker_dirs: []
 # docker_dirs:
 #   - "/etc/icinga-image-builder/dockerfiles"
 
+# Danh mục image mà tool hỗ trợ build. Đây không phải cấu hình container của icinga-ansible.
+# Với mỗi image:
+#   enabled: false             bỏ qua image, kể cả khi gọi build không truyền tên image.
+#   source_repository          repository của base image upstream.
+#   target_name                tên repository của image sau khi build.
+#   build_args                 build argument bổ sung cho Dockerfile; không đặt BASE_IMAGE ở đây.
+#
+# Công thức thực tế:
+#   base   = [source_registry/]source_repository:versions.<image>
+#   target = (target_registry hoặc local_namespace)/target_name:versions.<image>[tag_suffix]
+#
+# Các khóa tùy chọn dockerfile, context và tag_suffix dùng được cho mọi image. Cách custom
+# thường dùng là khai docker_dirs ở trên; chỉ khai ba khóa này khi một image cần ngoại lệ riêng.
 images:
   icinga2:
     enabled: true
     source_repository: "icinga/icinga2"
     target_name: "icinga2"
-    # dockerfile/context vẫn có thể dùng khi cần trỏ riêng image này tới một build context đặc biệt.
-    # tag_suffix: "-custom"
     build_args: {}
   icingadb:
     enabled: true

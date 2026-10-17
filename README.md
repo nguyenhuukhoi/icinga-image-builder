@@ -68,6 +68,33 @@ docker_dirs:                       # optional; thư mục override ngoài virtua
 - Nếu để trống `target_registry`, build vẫn chạy và tag dưới `local_namespace`; command `push` sẽ
   từ chối để tránh đẩy nhầm nơi.
 
+Khối `images` mô tả cách build từng image; nó không phải cấu hình container của `icinga-ansible`:
+
+```yaml
+images:
+  icinga2:
+    enabled: true
+    source_repository: "icinga/icinga2"
+    target_name: "icinga2"
+    build_args: {}
+```
+
+- `enabled`: cho phép image được chọn để build. Đặt `false` để bỏ qua image đó.
+- `source_repository`: repository của base image upstream. Tool ghép trường này với
+  `source_registry` và `versions.icinga2`.
+- `target_name`: tên repository của image kết quả. Tool ghép trường này với `target_registry`
+  (hoặc `local_namespace` khi build local) và version đã pin.
+- `build_args`: các build argument bổ sung cho Dockerfile. `{}` nghĩa là không có giá trị bổ sung;
+  `BASE_IMAGE` do tool tự tạo từ version đã pin nên không được khai ở đây.
+
+Ví dụ với `source_registry: ""`, `target_registry: "172.28.81.109/openstack.kolla/icinga"` và
+`versions.icinga2: "2.16.5"`, tool dùng base `icinga/icinga2:2.16.5` và tạo image
+`172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5`.
+
+Các khóa tùy chọn `dockerfile`, `context` và `tag_suffix` áp dụng được cho mọi image. Cấu hình thông
+thường không cần chúng: dùng `docker_dirs` để override Dockerfile theo cách Kolla và giữ
+`tag_suffix: ""`. Chỉ khai trực tiếp dưới một image khi image đó cần ngoại lệ riêng.
+
 ### `local_namespace` dùng khi nào?
 
 `local_namespace` là tiền tố đặt tên image chỉ trên Docker daemon của build node khi
