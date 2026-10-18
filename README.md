@@ -397,7 +397,7 @@ Với image Icinga 2 custom dùng tag version đã pin, kiểm tra package:
 ```bash
 docker run --rm --entrypoint /opt/icinga-venv/bin/python \
   172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5 \
-  -c 'import openstack, yaml; print(openstack.__version__)'
+  -c 'import importlib.metadata, yaml; print(importlib.metadata.version("openstacksdk"), yaml.__version__)'
 ```
 
 ## 7. Quy tắc an toàn
