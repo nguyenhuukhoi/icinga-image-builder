@@ -156,6 +156,16 @@ class PlanTests(unittest.TestCase):
 
 
 class DockerTests(unittest.TestCase):
+    def test_openstack_example_pins_release_and_installs_required_clients(self):
+        example_dir = Path(__file__).resolve().parents[1] / "examples" / "icinga2-openstack"
+        config = yaml.safe_load((example_dir / "config.yml").read_text(encoding="utf-8"))
+        dockerfile = (example_dir / "Dockerfile").read_text(encoding="utf-8")
+
+        self.assertEqual(config["images"]["icinga2"]["build_args"]["OPENSTACK_RELEASE"], "2025.1")
+        self.assertIn("constraints/upper/${OPENSTACK_RELEASE}", dockerfile)
+        for package in ("python-openstackclient", "python-masakariclient", "python-octaviaclient"):
+            self.assertIn(package, dockerfile)
+
     def test_default_dockerfiles_require_base_image_from_config(self):
         for name in cli.IMAGE_ORDER:
             dockerfile = cli.PACKAGE_ROOT / "dockerfiles" / name / "Dockerfile"

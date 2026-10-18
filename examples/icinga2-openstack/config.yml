@@ -20,8 +20,7 @@ images:
     dockerfile: "Dockerfile"
     context: "."
     build_args:
-      OPENSTACKSDK_VERSION: "4.21.0"
-      PYYAML_VERSION: "6.0.3"
+      OPENSTACK_RELEASE: "2025.1"
   icingadb:
     enabled: false
   icingadb_redis:

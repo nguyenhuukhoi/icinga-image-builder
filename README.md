@@ -247,7 +247,8 @@ qua build argument `BASE_IMAGE`. Không được khai `BASE_IMAGE` trong `images
 
 Khi cần custom Icinga 2, copy file mẫu thành
 `/etc/icinga-image-builder/dockerfiles/icinga2/Dockerfile`. Tool luôn truyền `BASE_IMAGE` theo version đã
-chọn. Project có file mẫu `examples/icinga2-openstack/Dockerfile` cài Python và OpenStack SDK:
+chọn. Project có file mẫu `examples/icinga2-openstack/Dockerfile` cài Python cùng OpenStackClient,
+Masakari client và Octavia client. `OPENSTACK_RELEASE` chọn bộ upper constraints dùng chung cho cả ba:
 
 ```dockerfile
 # check=skip=InvalidDefaultArgInFrom
@@ -255,15 +256,15 @@ chọn. Project có file mẫu `examples/icinga2-openstack/Dockerfile` cài Pyth
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
-ARG OPENSTACKSDK_VERSION=4.21.0
-ARG PYYAML_VERSION=6.0.3
+ARG OPENSTACK_RELEASE=2025.1
 
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 python3-venv \
     && python3 -m venv /opt/icinga-venv \
     && /opt/icinga-venv/bin/pip install --no-cache-dir \
-       "openstacksdk==${OPENSTACKSDK_VERSION}" "PyYAML==${PYYAML_VERSION}" \
+       -c "https://releases.openstack.org/constraints/upper/${OPENSTACK_RELEASE}" \
+       python-openstackclient python-masakariclient python-octaviaclient \
     && rm -rf /var/lib/apt/lists/*
 
 USER icinga
@@ -279,8 +280,7 @@ images:
     dockerfile: "examples/icinga2-openstack/Dockerfile"
     context: "examples/icinga2-openstack"
     build_args:
-      OPENSTACKSDK_VERSION: "4.21.0"
-      PYYAML_VERSION: "6.0.3"
+      OPENSTACK_RELEASE: "2025.1"
 ```
 
 Theo cách dùng mặc định của Kolla, image custom giữ nguyên tag version đã pin. Ví dụ trên vì vậy tạo
@@ -395,9 +395,11 @@ docker image inspect 172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5 \
 Với image Icinga 2 custom dùng tag version đã pin, kiểm tra package:
 
 ```bash
-docker run --rm --entrypoint /opt/icinga-venv/bin/python \
+docker run --rm --entrypoint /bin/sh \
   172.28.81.109/openstack.kolla/icinga/icinga2:2.16.5 \
-  -c 'import importlib.metadata, yaml; print(importlib.metadata.version("openstacksdk"), yaml.__version__)'
+  -c '/opt/icinga-venv/bin/openstack --version && \
+      /opt/icinga-venv/bin/openstack segment list --help >/dev/null && \
+      /opt/icinga-venv/bin/openstack loadbalancer list --help >/dev/null'
 ```
 
 ## 7. Quy tắc an toàn
